@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clinic-agent-postgres
+    environment:
+      POSTGRES_DB: clinic_agent
+      POSTGRES_USER: clinic_agent
+      POSTGRES_PASSWORD: clinic_agent
+    ports:
+      - "5433:5432"
+    volumes:
+      - clinic_agent_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinic_agent -d clinic_agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  clinic_agent_postgres_data:
