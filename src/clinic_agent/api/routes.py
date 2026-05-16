@@ -6,9 +6,10 @@ from sqlalchemy import text
 from clinic_agent.agent.orchestrator import AgentOrchestrator
 from clinic_agent.api.schemas import ChatRequest, ChatResponse, SessionResponse
 from clinic_agent.db.session import session_scope
+from clinic_agent.db.session_state import AgentSessionStateRepository
 from clinic_agent.llm.factory import create_llm_provider
 from clinic_agent.memory.store import memory_store
-from clinic_agent.tools.registry import default_tool_registry
+from clinic_agent.tools.client import create_tool_client
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         orchestrator = AgentOrchestrator(
             llm_provider=create_llm_provider(request.provider),
             memory=memory_store,
-            tools=default_tool_registry(),
+            tool_client=create_tool_client(),
         )
         return await orchestrator.handle_message(
             user_message=request.message,
@@ -53,6 +54,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 @router.post("/sessions", response_model=SessionResponse)
 async def create_session() -> SessionResponse:
     session_id = str(uuid4())
+    AgentSessionStateRepository().create_session(session_id)
     memory_store.add_message(session_id, "assistant", SESSION_GREETING)
     return SessionResponse(
         session_id=session_id,

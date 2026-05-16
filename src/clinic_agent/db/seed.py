@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from clinic_agent.db.models import AppointmentSlot, Patient
+from clinic_agent.db.models import AppointmentSlot, ClinicLocation, Patient
 from clinic_agent.db.session import session_scope
 
 
@@ -54,6 +54,21 @@ SLOTS = [
     ),
 ]
 
+LOCATIONS = [
+    ClinicLocation(
+        id="main-clinic",
+        name="Main Clinic",
+        address="100 Wellness Ave, Springfield",
+        hours="Mon-Fri 8:00 AM - 5:00 PM",
+    ),
+    ClinicLocation(
+        id="north-clinic",
+        name="North Clinic",
+        address="22 Care Street, Springfield",
+        hours="Mon-Fri 9:00 AM - 6:00 PM",
+    ),
+]
+
 
 def seed() -> None:
     with session_scope() as session:
@@ -61,6 +76,8 @@ def seed() -> None:
             session.merge(patient)
         for slot in SLOTS:
             session.merge(slot)
+        for location in LOCATIONS:
+            session.merge(location)
 
 
 if __name__ == "__main__":

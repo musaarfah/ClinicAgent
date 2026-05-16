@@ -1,7 +1,11 @@
 from fastapi.testclient import TestClient
 
+from clinic_agent.api import routes
+from clinic_agent.db.repository import ClinicRepository
+from clinic_agent.db.session_state import AgentSessionStateRepository
 from clinic_agent.main import create_app
 from clinic_agent.memory.store import memory_store
+from conftest import InProcessMcpToolClient
 
 
 def test_health_endpoint() -> None:
@@ -13,8 +17,16 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_chat_endpoint_returns_session_and_message(sqlite_database_url: str) -> None:
+def test_chat_endpoint_returns_session_and_message(sqlite_database_url: str, monkeypatch) -> None:
     memory_store.clear()
+    monkeypatch.setattr(
+        routes,
+        "create_tool_client",
+        lambda: InProcessMcpToolClient(
+            ClinicRepository(),
+            AgentSessionStateRepository(),
+        ),
+    )
     client = TestClient(create_app())
 
     response = client.post(
@@ -29,7 +41,7 @@ def test_chat_endpoint_returns_session_and_message(sqlite_database_url: str) -> 
     assert payload["tool_results"]
 
 
-def test_create_session_returns_backend_greeting() -> None:
+def test_create_session_returns_backend_greeting(sqlite_database_url: str) -> None:
     memory_store.clear()
     client = TestClient(create_app())
 
@@ -42,7 +54,7 @@ def test_create_session_returns_backend_greeting() -> None:
     assert "ClinicAgent" in payload["messages"][0]["content"]
 
 
-def test_created_sessions_are_isolated() -> None:
+def test_created_sessions_are_isolated(sqlite_database_url: str) -> None:
     memory_store.clear()
     client = TestClient(create_app())
 

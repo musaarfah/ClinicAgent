@@ -6,10 +6,20 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from clinic_agent.db.models import AppointmentSlot, Base, Patient
+from clinic_agent.db.models import AppointmentSlot, Base, ClinicLocation, Patient
 from clinic_agent.db.repository import ClinicRepository
 from clinic_agent.db.session import reset_session_factory
+from clinic_agent.db.session_state import AgentSessionStateRepository
 from clinic_agent.memory.store import memory_store
+from clinic_agent_mcp.tools.appointments import (
+    book_appointment,
+    cancel_patient_appointment,
+    get_patient_appointments,
+)
+from clinic_agent_mcp.tools.handoff import handoff_to_human
+from clinic_agent_mcp.tools.locations import get_location_details
+from clinic_agent_mcp.tools.patients import patient_search, validate_patient
+from clinic_agent_mcp.tools.slots import get_available_slots
 
 
 @pytest.fixture()
@@ -44,6 +54,68 @@ def clinic_repository(sqlite_database_url: str) -> ClinicRepository:
             session.close()
 
     return ClinicRepository(session_provider=session_provider)
+
+
+@pytest.fixture()
+def agent_session_state_repository(sqlite_database_url: str) -> AgentSessionStateRepository:
+    engine = create_engine(sqlite_database_url)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+    @contextmanager
+    def session_provider() -> Iterator[Session]:
+        session = session_factory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    return AgentSessionStateRepository(session_provider=session_provider)
+
+
+class InProcessMcpToolClient:
+    def __init__(
+        self,
+        clinic_repository: ClinicRepository,
+        session_state_repository: AgentSessionStateRepository,
+    ) -> None:
+        self.clinic_repository = clinic_repository
+        self.session_state_repository = session_state_repository
+
+    async def openai_definitions(self, allowed_tool_names: list[str]) -> list[dict]:
+        return []
+
+    async def call_tool(self, name: str, arguments: dict, session_id: str) -> dict:
+        mcp_arguments = dict(arguments)
+        if name not in {"patient_search", "get_location_details"}:
+            mcp_arguments["session_id"] = session_id
+
+        tool_functions = {
+            "patient_search": patient_search,
+            "validate_patient": validate_patient,
+            "get_available_slots": get_available_slots,
+            "book_appointment": book_appointment,
+            "get_patient_appointments": get_patient_appointments,
+            "cancel_patient_appointment": cancel_patient_appointment,
+            "get_location_details": get_location_details,
+            "handoff_to_human": handoff_to_human,
+        }
+        if name in {
+            "validate_patient",
+            "get_available_slots",
+            "book_appointment",
+            "get_patient_appointments",
+            "cancel_patient_appointment",
+        }:
+            return tool_functions[name](
+                **mcp_arguments,
+                repository=self.clinic_repository,
+                state_repository=self.session_state_repository,
+            )
+        return tool_functions[name](**mcp_arguments, repository=self.clinic_repository)
 
 
 def seed_test_database(session_factory: sessionmaker[Session]) -> None:
@@ -93,6 +165,18 @@ def seed_test_database(session_factory: sessionmaker[Session]) -> None:
                     location="North Clinic",
                     reason="general appointment",
                     is_available=True,
+                ),
+                ClinicLocation(
+                    id="main-clinic",
+                    name="Main Clinic",
+                    address="100 Wellness Ave, Springfield",
+                    hours="Mon-Fri 8:00 AM - 5:00 PM",
+                ),
+                ClinicLocation(
+                    id="north-clinic",
+                    name="North Clinic",
+                    address="22 Care Street, Springfield",
+                    hours="Mon-Fri 9:00 AM - 6:00 PM",
                 ),
             ]
         )

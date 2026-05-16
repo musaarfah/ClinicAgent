@@ -4,15 +4,17 @@ from clinic_agent.agent.orchestrator import AgentOrchestrator
 from clinic_agent.llm.fake_provider import FakeProvider
 from clinic_agent.memory.store import ConversationMemory
 from clinic_agent.db.repository import ClinicRepository
-from clinic_agent.tools.registry import default_tool_registry
+from clinic_agent.db.session_state import AgentSessionStateRepository
+from conftest import InProcessMcpToolClient
 
 
 @pytest.mark.asyncio
 async def test_orchestrator_uses_scheduling_tools(clinic_repository: ClinicRepository) -> None:
+    state_repository = AgentSessionStateRepository(clinic_repository.session_provider)
     orchestrator = AgentOrchestrator(
         llm_provider=FakeProvider(),
         memory=ConversationMemory(),
-        tools=default_tool_registry(clinic_repository),
+        tool_client=InProcessMcpToolClient(clinic_repository, state_repository),
     )
 
     response = await orchestrator.handle_message("Can you find available appointment slots?")
@@ -27,10 +29,11 @@ async def test_orchestrator_requires_validation_before_booking(
     clinic_repository: ClinicRepository,
 ) -> None:
     memory = ConversationMemory()
+    state_repository = AgentSessionStateRepository(clinic_repository.session_provider)
     orchestrator = AgentOrchestrator(
         llm_provider=FakeProvider(),
         memory=memory,
-        tools=default_tool_registry(clinic_repository),
+        tool_client=InProcessMcpToolClient(clinic_repository, state_repository),
     )
 
     first_response = await orchestrator.handle_message("Show me available slots")
@@ -50,10 +53,11 @@ async def test_orchestrator_books_referenced_slot_after_validation(
     clinic_repository: ClinicRepository,
 ) -> None:
     memory = ConversationMemory()
+    state_repository = AgentSessionStateRepository(clinic_repository.session_provider)
     orchestrator = AgentOrchestrator(
         llm_provider=FakeProvider(),
         memory=memory,
-        tools=default_tool_registry(clinic_repository),
+        tool_client=InProcessMcpToolClient(clinic_repository, state_repository),
     )
 
     first_response = await orchestrator.handle_message("Show me available slots")
@@ -77,10 +81,11 @@ async def test_orchestrator_lists_and_cancels_patient_appointment(
     clinic_repository: ClinicRepository,
 ) -> None:
     memory = ConversationMemory()
+    state_repository = AgentSessionStateRepository(clinic_repository.session_provider)
     orchestrator = AgentOrchestrator(
         llm_provider=FakeProvider(),
         memory=memory,
-        tools=default_tool_registry(clinic_repository),
+        tool_client=InProcessMcpToolClient(clinic_repository, state_repository),
     )
 
     first_response = await orchestrator.handle_message("Show me available slots")

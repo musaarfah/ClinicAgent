@@ -16,5 +16,22 @@ services:
       timeout: 3s
       retries: 10
 
+  mcp:
+    image: python:3.12-slim
+    container_name: clinic-agent-mcp
+    working_dir: /app
+    command: sh -c "pip install -e . && python -m clinic_agent_mcp.server"
+    environment:
+      DATABASE_URL: postgresql+psycopg://clinic_agent:clinic_agent@postgres:5432/clinic_agent
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 9100
+    ports:
+      - "9100:9100"
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   clinic_agent_postgres_data:

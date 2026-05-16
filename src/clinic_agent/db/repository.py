@@ -4,7 +4,13 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from clinic_agent.db.models import Appointment, AppointmentSlot, Patient
+from clinic_agent.db.models import (
+    Appointment,
+    AppointmentSlot,
+    ClinicLocation,
+    HandoffRequest,
+    Patient,
+)
 from clinic_agent.db.session import session_scope
 
 
@@ -128,6 +134,27 @@ class ClinicRepository:
             appointment.slot.is_available = True
             return self._appointment_to_dict(appointment)
 
+    def get_location_details(self, location_id: str) -> dict:
+        with self.session_provider() as session:
+            location = session.get(ClinicLocation, location_id)
+            if not location:
+                location = session.get(ClinicLocation, "main-clinic")
+            if not location:
+                return {"status": "location_not_found", "location_id": location_id}
+            return self._location_to_dict(location)
+
+    def create_handoff_request(self, session_id: str, reason: str) -> dict:
+        with self.session_provider() as session:
+            handoff_request = HandoffRequest(
+                id=f"handoff-{uuid4().hex[:8]}",
+                session_id=session_id,
+                reason=reason,
+                status="queued",
+            )
+            session.add(handoff_request)
+            session.flush()
+            return self._handoff_request_to_dict(handoff_request)
+
     @staticmethod
     def _patient_to_dict(patient: Patient) -> dict:
         return {
@@ -154,6 +181,24 @@ class ClinicRepository:
             "status": appointment.status,
             "patient": self._patient_to_dict(appointment.patient),
             "slot": self._slot_to_dict(appointment.slot),
+        }
+
+    @staticmethod
+    def _location_to_dict(location: ClinicLocation) -> dict:
+        return {
+            "location_id": location.id,
+            "name": location.name,
+            "address": location.address,
+            "hours": location.hours,
+        }
+
+    @staticmethod
+    def _handoff_request_to_dict(handoff_request: HandoffRequest) -> dict:
+        return {
+            "handoff_id": handoff_request.id,
+            "session_id": handoff_request.session_id,
+            "reason": handoff_request.reason,
+            "status": handoff_request.status,
         }
 
 
