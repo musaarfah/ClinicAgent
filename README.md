@@ -1,8 +1,7 @@
 # ClinicAgent
 
-ClinicAgent is a local AI clinic scheduling assistant built as a neutral portfolio project. It demonstrates production-inspired agent architecture in a smaller, runnable FastAPI application.
+ClinicAgent is a local AI clinic scheduling assistant. It demonstrates agenitc architecture in a smaller, runnable FastAPI application.
 
-The project intentionally uses fictional mock data and local-only tools. It does not include production names, secrets, customer data, internal configs, or unavailable infrastructure.
 
 ## Features
 
@@ -149,21 +148,3 @@ pytest
 
 The tests use an in-process MCP tool client so they do not require a running MCP server.
 
-## What Was Simplified
-
-ClinicAgent keeps the useful architecture ideas: orchestration, provider abstraction, MCP tool boundaries, domain-organized tools, session memory, skill-gated tools, typed APIs, and persisted scheduling data.
-
-It removes production complexity: voice channels, cloud services, internal auth, queues, real EHR/vendor integrations, and deployment-specific configuration.
-
-Patient validation is intentionally simple: a fictional patient must match full first and last name plus date of birth before booking, viewing, or cancelling appointments. DOB can be entered as `1990-01-01`, `01-01-1990`, or `1 January 1990`. If full name + DOB do not match, the assistant can ask for phone number as a fallback. This is not real identity verification.
-
-Clinic locations and human handoff requests are stored in Postgres. Patients, appointment slots, and locations are fictional seed data for local demos.
-
-Gemini support is currently a standard text-generation provider. Native Gemini tool calling is a future improvement.
-
-## Future Improvements
-
-- Websocket response streaming.
-- Native Gemini tool/function calling.
-- More realistic scheduling workflows.
-- Persistent chat/session history.
